@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
+import PropTypes from 'prop-types';
 
 import Spinner from '../spinner/Spinner';
 import ErrorMessage from '../errorMessage/ErrorMessage';
@@ -48,7 +49,7 @@ const CharactersList = (props) => {
 
 	const onError = () => {
 		setError(true);
-		setLoading(false);
+		setLoading((loading) => false);
 	};
 
 	// useRef используется только на верхнем уровне компонента.
@@ -57,8 +58,8 @@ const CharactersList = (props) => {
 
 	const focusOnItem = (id) => {
 		itemsRefs.current.forEach((item) => item.classList.remove('char__item_selected'));
-		itemsRefs[id].current.classList.add('char__item_selected');
-		itemsRefs[id].current.focus();
+		itemsRefs.current[id].classList.add('char__item_selected');
+		itemsRefs.current[id].focus();
 	};
 
 	function renderItems(arr) {
@@ -112,6 +113,10 @@ const CharactersList = (props) => {
 			</button>
 		</div>
 	);
+};
+
+CharactersList.propTypes = {
+	onCharSelected: PropTypes.func.isRequired,
 };
 
 export default CharactersList;
