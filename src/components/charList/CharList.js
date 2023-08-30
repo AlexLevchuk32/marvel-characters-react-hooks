@@ -1,74 +1,67 @@
-import { Component } from 'react';
-import PropTypes from 'react';
+import { useState, useEffect, useRef } from 'react';
 
 import Spinner from '../spinner/Spinner';
 import ErrorMessage from '../errorMessage/ErrorMessage';
 import MarvelService from '../../services/MarvelService';
 import './charList.scss';
 
-class CharactersList extends Component {
-	state = {
-		charactersList: [],
-		loading: true,
-		error: false,
-		newItemsLoading: false,
-		offset: 210,
-		charactersEnded: false,
+const CharactersList = (props) => {
+	const [charactersList, setCharactersList] = useState([]);
+	const [loading, setLoading] = useState(true);
+	const [error, setError] = useState(false);
+	const [newItemsLoading, setNewItemsLoading] = useState(false);
+	const [offset, setOffset] = useState(210);
+	const [charactersEnded, setCharactersEnded] = useState(false);
+
+	const marvelService = new MarvelService();
+
+	// useEffect запустится только после рендера, поэтому стрелочну функцию
+	// onRequest можно вызвать выше объявления самой функции.
+	// Оставляем пустой массив зависимостей, чтобы функция выполнилась только один раз,
+	// при создании компонента, иначе можно получить бесконечный цикл.
+	useEffect(() => {
+		onRequest();
+	}, []);
+
+	const onRequest = (offset) => {
+		onCharListLoading();
+		marvelService.getAllCharacters(offset).then(onCharactersListLoaded).catch(onError);
 	};
 
-	marvelService = new MarvelService();
-
-	componentDidMount() {
-		this.onRequest();
-	}
-
-	onRequest = (offset) => {
-		this.onCharListLoading();
-		this.marvelService
-			.getAllCharacters(offset)
-			.then(this.onCharactersListLoaded)
-			.catch(this.onError);
+	const onCharListLoading = () => {
+		setNewItemsLoading(true);
 	};
 
-	onCharListLoading = () => {
-		this.setState({
-			newItemsLoading: true,
-		});
-	};
-
-	onCharactersListLoaded = (newCharactersList) => {
+	const onCharactersListLoaded = (newCharactersList) => {
 		let ended = false;
 
 		if (newCharactersList.length < 9) {
 			ended = true;
 		}
 
-		this.setState(({ offset, charactersList }) => ({
-			charactersList: [...charactersList, ...newCharactersList],
-			loading: false,
-			newItemsLoading: false,
-			offset: offset + 9,
-			charactersEnded: ended,
-		}));
+		setCharactersList((charactersList) => [...charactersList, ...newCharactersList]);
+		setLoading((loading) => false);
+		setNewItemsLoading((newItemsLoading) => false);
+		setOffset((offset) => offset + 9);
+		setCharactersEnded((charactersEnded) => ended);
 	};
 
-	onError = () => {
-		this.setState({ error: true, loading: false });
+	const onError = () => {
+		setError(true);
+		setLoading(false);
 	};
 
-	itemsRefs = [];
+	// useRef используется только на верхнем уровне компонента.
+	// В useRef нельзя помещать условия, внутренние функции, циклы - это запрещено.
+	const itemsRefs = useRef([]);
 
-	setRef = (ref) => {
-		this.itemsRefs.push(ref);
+	const focusOnItem = (id) => {
+		itemsRefs.current.forEach((item) => item.classList.remove('char__item_selected'));
+		itemsRefs[id].current.classList.add('char__item_selected');
+		itemsRefs[id].current.focus();
 	};
 
-	focusOnItem = (id) => {
-		this.itemsRefs.forEach((item) => item.classList.remove('char__item_selected'));
-		this.itemsRefs[id].classList.add('char__item_selected');
-		this.itemsRefs[id].focus();
-	};
-
-	renderItems(arr) {
+	function renderItems(arr) {
 		const items = arr.map((item, i) => {
 			let imgStyle = { objectFit: 'cover' };
 			if (
@@ -82,11 +75,11 @@ class CharactersList extends Component {
 				<li
 					className="char__item"
 					tabIndex={0}
-					ref={this.setRef}
+					ref={(el) => (itemsRefs.current[i] = el)}
 					key={item.id}
 					onClick={() => {
-						this.props.onCharacterSelected(item.id);
-						this.focusOnItem(i);
+						props.onCharacterSelected(item.id);
+						focusOnItem(i);
 					}}
 				>
 					<img src={item.thumbnail} alt={item.name} style={imgStyle} />
@@ -98,32 +91,27 @@ class CharactersList extends Component {
 		return <ul className="char__grid">{items}</ul>;
 	}
 
-	render() {
-		const { charactersList, loading, error, newItemsLoading, offset, charactersEnded } =
-			this.state;
+	const items = renderItems(charactersList);
 
-		const items = this.renderItems(charactersList);
+	const errorMessage = error ? <ErrorMessage /> : null;
+	const spinner = loading ? <Spinner /> : null;
+	const content = !(loading || error) ? items : null;
 
-		const errorMessage = error ? <ErrorMessage /> : null;
-		const spinner = loading ? <Spinner /> : null;
-		const content = !(loading || error) ? items : null;
-
-		return (
-			<div className="char__list">
-				{errorMessage}
-				{spinner}
-				{content}
-				<button
-					className="button button__main button__long"
-					disabled={newItemsLoading}
-					style={{ display: charactersEnded ? 'none' : 'block' }}
-					onClick={() => this.onRequest(offset)}
-				>
-					<div className="inner">load more</div>
-				</button>
-			</div>
-		);
-	}
-}
+	return (
+		<div className="char__list">
+			{errorMessage}
+			{spinner}
+			{content}
+			<button
+				className="button button__main button__long"
+				disabled={newItemsLoading}
+				style={{ display: charactersEnded ? 'none' : 'block' }}
+				onClick={() => onRequest(offset)}
+			>
+				<div className="inner">load more</div>
+			</button>
+		</div>
+	);
+};
 
 export default CharactersList;
